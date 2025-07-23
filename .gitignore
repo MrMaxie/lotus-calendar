@@ -27,3 +27,4 @@ target
 
 # Dotenv
 .env
+.mem

@@ -3,4 +3,18 @@ name = "lotus-calendar"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+dev = []
+
 [dependencies]
+oauth2 = { version = "5", features = ["reqwest", "reqwest-blocking"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+dotenvy = "0.15"
+envy = "0.4"
+reqwest = { version = "0.12" }
+quick-xml = "0.38"
+open = "5"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1"
