@@ -7,12 +7,19 @@
     "start": "bun run src/index.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/luxon": "^3.6.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@maxiedev/events": "^1.0.0"
+    "@maxiedev/events": "^1.0.0",
+    "luxon": "^3.7.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tsdav": "^2.1.5"
   }
 }

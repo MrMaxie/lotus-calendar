@@ -1,4 +1,8 @@
 import { createEventEmitter } from '@maxiedev/events';
+import React from 'react';
+import { renderToReadableStream } from 'react-dom/server';
+import Login from './components/Login';
+import LoggedIn from './components/LoggedIn';
 
 const context = (() => {
   const innerContext = {
@@ -6,6 +10,10 @@ const context = (() => {
       email: string;
       name: string;
       accessToken: string;
+      refreshToken: string;
+      tokenType: string;
+      expiresIn: number;
+      scope: string;
     } | null),
     clientId: Bun.env.GOOGLE_CLIENT_ID,
     clientSecret: Bun.env.GOOGLE_CLIENT_SECRET,
@@ -36,39 +44,21 @@ const context = (() => {
   };
 })();
 
-
-
 const ee = createEventEmitter<{
   loggedIn: [user: {
     email: string;
     name: string;
     accessToken: string;
+    refreshToken: string;
+    tokenType: string;
+    expiresIn: number;
+    scope: string;
   }];
   loggedOut: [];
 }>();
 
-const loadTemplate = async (templateName: string) => {
-  const templatePath = `src/templates/${templateName}.html`;
-  try {
-    const file = Bun.file(templatePath);
-    return await file.text();
-  } catch (error) {
-    console.error(`Failed to load template ${templateName}:`, error);
-    return '';
-  }
-};
-
-const renderTemplate = (template: string, data: Record<string, string>) => {
-  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-    return data[key] || match;
-  });
-};
-
 export const oauthServer = async () => {
   await context.load();
-
-  const loggedInHtml = await loadTemplate('logged-in');
-  const loginHtml = await loadTemplate('login');
 
   const server = Bun.serve({
     port: 3000,
@@ -77,14 +67,21 @@ export const oauthServer = async () => {
         const loggedAs = context.get('loggedAs');
 
         if (loggedAs) {
-          return new Response(renderTemplate(loggedInHtml, {
-            email: loggedAs.email,
-            name: loggedAs.name,
-          }), {
+          const stream = await renderToReadableStream(
+            React.createElement(LoggedIn, {
+              name: loggedAs.name,
+              email: loggedAs.email,
+            })
+          );
+          return new Response(stream, {
             headers: { 'Content-Type': 'text/html' }
           });
         }
-        return new Response(loginHtml, {
+        
+        const stream = await renderToReadableStream(
+          React.createElement(Login)
+        );
+        return new Response(stream, {
           headers: { 'Content-Type': 'text/html' }
         });
       },
@@ -95,7 +92,7 @@ export const oauthServer = async () => {
           `client_id=${clientId}&` +
           `redirect_uri=${encodeURIComponent('http://localhost:3000/auth/callback')}&` +
           `response_type=code&` +
-          `scope=${encodeURIComponent('https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile')}&` +
+          `scope=${encodeURIComponent('https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events')}&` +
           `access_type=offline`;
 
         return new Response('', {
@@ -129,6 +126,8 @@ export const oauthServer = async () => {
             access_token: string;
             token_type: string;
             expires_in: number;
+            refresh_token?: string;
+            scope: string;
           };
 
           if (!tokenResponse.ok) {
@@ -156,6 +155,10 @@ export const oauthServer = async () => {
             email: userData.email,
             name: userData.name,
             accessToken: tokenData.access_token,
+            refreshToken: tokenData.refresh_token || '',
+            tokenType: tokenData.token_type,
+            expiresIn: tokenData.expires_in,
+            scope: tokenData.scope,
           };
 
           context.set('loggedAs', loggedAs);
@@ -178,5 +181,7 @@ export const oauthServer = async () => {
 };
 
 export const waitForLoggedIn = async () => {
-  return ee.until('loggedIn');
+  const currentUser = context.get('loggedAs');
+
+  return currentUser ? [currentUser] : ee.until('loggedIn');
 }
